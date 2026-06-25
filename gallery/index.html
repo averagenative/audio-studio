@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Studio — Gallery</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0c0e13; color:#e8e8e8;
+         font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { position:sticky; top:0; z-index:5; padding:14px 20px; background:#11141b;
+           border-bottom:1px solid #232838; display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; letter-spacing:.3px; }
+  header .meta { color:#8a93a6; font-size:12px; }
+  header .dot { width:8px;height:8px;border-radius:50%;background:#caa0ff;box-shadow:0 0 8px #caa0ff; }
+  #list { max-width:860px; margin:0 auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+  .track { background:#161a23; border:1px solid #232838; border-radius:12px; padding:14px 16px; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .tags { font-size:14px; color:#e8e8e8; font-weight:600; }
+  .when { color:#7e8aa0; font-size:11.5px; white-space:nowrap; }
+  .fname { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;
+           color:#6fb3ff; margin-top:4px; }
+  audio { width:100%; margin:10px 0 6px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .chip { font-size:10.5px; color:#b7a6e0; background:#1d2030; border:1px solid #2c2a46;
+          padding:2px 8px; border-radius:99px; }
+  .lyrics { margin-top:10px; font-size:12.5px; color:#aeb6c6; white-space:pre-wrap;
+            max-height:7em; overflow:auto; border-left:2px solid #2c2a46; padding-left:10px; }
+  .dl { color:#9fb0d0; text-decoration:none; font-size:11.5px; }
+  .dl:hover { color:#caa0ff; }
+  .empty { color:#8a93a6; padding:40px; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot"></span>
+  <h1>Audio Studio</h1>
+  <span class="meta" id="status">loading…</span>
+</header>
+<div id="list"><div class="empty">Scanning for tracks…</div></div>
+
+<script>
+const listEl = document.getElementById('list');
+const statusEl = document.getElementById('status');
+const AUDIO_RE = /\.(flac|mp3|wav|ogg|opus)$/i;
+const sidecars = {};
+let lastKey = '';
+
+async function sidecar(name) {
+  if (name in sidecars) return sidecars[name];
+  try {
+    const r = await fetch('/audio/' + encodeURIComponent(name) + '.json', {cache:'no-store'});
+    sidecars[name] = r.ok ? await r.json() : null;
+  } catch { sidecars[name] = null; }
+  return sidecars[name];
+}
+
+async function refresh() {
+  let items;
+  try {
+    const r = await fetch('/list/?t=' + Date.now(), {cache:'no-store'});
+    items = await r.json();
+  } catch { statusEl.textContent = 'gallery offline'; return; }
+
+  const tracks = items
+    .filter(i => i.type === 'file' && AUDIO_RE.test(i.name))
+    .sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+
+  const key = tracks.map(t => t.name + t.mtime).join('|');
+  statusEl.textContent = tracks.length + ' track' + (tracks.length===1?'':'s') + ' · auto-refresh 5s';
+  if (key === lastKey) return;
+  lastKey = key;
+
+  if (!tracks.length) { listEl.innerHTML = '<div class="empty">No tracks yet — generate something!</div>'; return; }
+
+  const rows = await Promise.all(tracks.map(async t => {
+    const m = await sidecar(t.name) || {};
+    const url = '/audio/' + encodeURIComponent(t.name);
+    const chips = [];
+    if (m.instrumental) chips.push('instrumental');
+    if (m.seconds) chips.push(Math.round(m.seconds) + 's');
+    if (m.seed != null) chips.push('seed ' + m.seed);
+    if (m.steps) chips.push(m.steps + ' steps');
+    const tags = (m.tags || t.name).replace(/</g,'&lt;');
+    const lyrics = (m.lyrics || '').replace(/</g,'&lt;');
+    return `<div class="track">
+      <div class="top"><span class="tags">${tags}</span><span class="when">${new Date(t.mtime).toLocaleString()}</span></div>
+      <div class="fname">${t.name.replace(/</g,'&lt;')}</div>
+      <audio controls preload="metadata" src="${url}"></audio>
+      <div class="chips">${chips.map(c=>`<span class="chip">${c}</span>`).join('')}
+        <a class="dl" href="${url}" download>⬇ download</a></div>
+      ${lyrics ? `<div class="lyrics">${lyrics}</div>` : ''}
+    </div>`;
+  }));
+  listEl.innerHTML = rows.join('');
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
