@@ -60,7 +60,7 @@ XL_CLIP = "qwen_4b_ace15.safetensors"
 XL_VAE  = "ace_1.5_vae.safetensors"
 
 def build(tags, lyrics, seconds, seed, steps, cfg, bpm, temperature=0.85,
-          key="C major", lora=None, lora_strength=1.0, model="turbo", shift=None):
+          key="C major", lora=None, lora_strength=1.0, model="turbo", shift=None, language="en", audio_codes=True):
     # Pick loaders by model. XL SFT = split files (better fidelity, slow on 8GB);
     # turbo/v1 = the all-in-one checkpoint.
     if model == "xl":
@@ -97,12 +97,12 @@ def build(tags, lyrics, seconds, seed, steps, cfg, bpm, temperature=0.85,
                                  "inputs": {"clip": clip_src, "stop_at_clip_layer": -2}}}
         clip_src = ["clipskip", 0]
         common = {"seed": seed, "bpm": bpm, "duration": seconds, "timesignature": "4",
-                  "language": "en", "keyscale": key, "cfg_scale": 2.0,
+                  "language": language, "keyscale": key, "cfg_scale": 2.0,
                   "temperature": temperature, "top_p": 0.9, "top_k": 0, "min_p": 0.0}
         g = {**loaders, **clipskip,
              "lat": {"class_type": "EmptyAceStep1.5LatentAudio", "inputs": {"seconds": seconds, "batch_size": 1}},
              "pos": {"class_type": "TextEncodeAceStepAudio1.5", "inputs": {
-                 "clip": clip_src, "tags": tags, "lyrics": lyrics, "generate_audio_codes": True, **common}},
+                 "clip": clip_src, "tags": tags, "lyrics": lyrics, "generate_audio_codes": audio_codes, **common}},
              "neg": {"class_type": "TextEncodeAceStepAudio1.5", "inputs": {
                  "clip": clip_src, "tags": "", "lyrics": "", "generate_audio_codes": False, **common}},
              "samp": samp(), "dec": dec, "save": save}
@@ -155,6 +155,9 @@ def main():
                     help="vocal/code variation (ACE-Step 1.5); raise toward 1.0-1.1 for less 'stock' vocals")
     ap.add_argument("--key", default="C major", help="key/scale, e.g. 'E minor' (ACE-Step 1.5). "
                     "Heavy genres want a minor key — major reads 'upbeat'.")
+    ap.add_argument("--no-codes", dest="audio_codes", action="store_false",
+                    help="skip the LLM audio-codes stage (less VRAM/quality; needed for long tracks on 8GB)")
+    ap.add_argument("--language", default="en", help="vocal language code, e.g. ru, ja, es (ACE-Step 1.5)")
     ap.add_argument("--lora", help="genre LoRA filename in models/loras/ (e.g. metalcore-v1.safetensors)")
     ap.add_argument("--lora-strength", type=float, default=1.0)
     ap.add_argument("--shift", type=float, default=None,
@@ -187,7 +190,7 @@ def main():
     for i in range(a.count):
         seed = base_seed + i
         graph, save_id = build(a.tags, lyrics, a.seconds, seed, a.steps, a.cfg, a.bpm,
-                               a.temperature, a.key, a.lora, a.lora_strength, a.model, a.shift)
+                               a.temperature, a.key, a.lora, a.lora_strength, a.model, a.shift, a.language, a.audio_codes)
         pid = queue(graph)
         print(f"[{i+1}/{a.count}] queued {a.model} seed={seed} {a.seconds:g}s steps={a.steps} cfg={a.cfg}"
               + (f" lora={a.lora}" if a.lora else "") + (" [instrumental]" if a.instrumental else ""))

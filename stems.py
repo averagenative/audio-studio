@@ -22,8 +22,10 @@ name = sys.argv[1]; model = sys.argv[2]
 audio, rate = sf.read(f"/root/ComfyUI/output/{name}", dtype="float32")
 if audio.ndim == 1: audio = audio[:, None]
 ten = torch.as_tensor(audio.T).float()
-est = predict.separate(audio=ten, rate=rate, model_str_or_path=model,
-                       device="cuda" if torch.cuda.is_available() else "cpu")
+# CPU by default: openunmix loads the whole track's STFT into memory at once, which
+# OOMs an 8GB GPU on long tracks. CPU uses system RAM and is plenty fast for separation.
+dev = "cuda" if (os.environ.get("STEMS_GPU") and torch.cuda.is_available()) else "cpu"
+est = predict.separate(audio=ten, rate=rate, model_str_or_path=model, device=dev)
 out = f"/root/ComfyUI/output/stems/{os.path.splitext(name)[0]}"; os.makedirs(out, exist_ok=True)
 for stem, t in est.items():
     sf.write(os.path.join(out, stem + ".wav"), t[0].cpu().numpy().T, rate)
