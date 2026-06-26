@@ -102,6 +102,18 @@ python3 stems.py output/song_00001.flac    # -> output/stems/song_00001/{vocals,
 ./daw-up.sh                                  # open the web DAW, import the stems, record over them
 ```
 
+### Lo-fi the vocal
+
+Keep the song, degrade just the voice — telephone band + bit/sample crush + tape
+wobble, over a hiss + random vinyl-crackle bed:
+
+```bash
+python3 lofi.py output/song_00001.flac                  # heavy crush + hiss + crackle
+python3 lofi.py song_00001.flac --crush light --warble  # gentler + tape pitch-drift
+python3 lofi.py song_00001.flac --no-crackle --crackle-thresh 0.15
+#  -> output/song_00001_lofi.flac
+```
+
 ---
 
 ## Tuning lessons (baked into generate.py)
@@ -131,6 +143,7 @@ Hard-won defaults — change them and you'll likely regress:
 | `gallery-up/down.sh`| Start/stop the audio gallery (host **:8212**)            |
 | `generate.py`      | Generate a track + write the gallery sidecar              |
 | `stems.py`         | Split a track into stems (openunmix) for a DAW            |
+| `lofi.py`          | Lo-fi a track's vocal (crush + hiss + random crackle)     |
 | `daw-up/down.sh`   | Serve the openDAW web DAW                                  |
 | `check_updates.py` | Report newer local music models vs. installed             |
 

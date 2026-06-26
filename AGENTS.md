@@ -15,7 +15,8 @@ gallery shows/plays them.** Preserve that.
 | Path                 | Role                                                            |
 |----------------------|----------------------------------------------------------------|
 | `generate.py`        | Client. Builds ACE-Step graphs, POSTs, peak-normalizes, sidecars.|
-| `stems.py`           | Stem separation via openunmix (runs in the container).         |
+| `stems.py`           | Stem separation via openunmix (runs in the container, CPU).     |
+| `lofi.py`            | Lo-fi a track's vocal: separate → crush → hiss+crackle → remix. |
 | `studio-*.sh`        | Start/stop ComfyUI (`audio-studio-comfyui`, host :8210).       |
 | `gallery-*.sh`       | Start/stop the audio gallery (`audio-studio-gallery`, :8212).  |
 | `daw-*.sh`           | Start/stop openDAW (vite dev server, https://localhost:8080).  |
